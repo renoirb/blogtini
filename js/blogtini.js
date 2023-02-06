@@ -282,8 +282,10 @@ async function main() {
 
   // see if this is an (atypical) "off site" page/post, compared to the main site
   // eslint-disable-next-line no-use-before-define
-  const [my_frontmatter] = markdown_parse(document.getElementsByTagName('body')[0].innerHTML)
+  const [my_frontmatter, ...rest] = markdown_parse(document.getElementsByTagName('body')[0].innerHTML)
   const base = my_frontmatter?.base
+
+  console.log('blogtini 2', { state, my_frontmatter, rest })
 
   state.pathrel = state.is_homepage ? '' : '../' // xxxx generalize
   state.top_dir = base ?? state.pathrel
