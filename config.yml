@@ -6,3 +6,42 @@ img_site: https://files.mastodon.social/accounts/avatars/000/570/310/original/4f
 posts_per_page: 10
 remove_blur: true
 
+
+intro:
+  rss: false
+  social: false
+  paragraph: "Web · Sci-Fi · Docker · Nerd"
+
+
+sidebar:
+  about: Hi, this is an attempt to migrate all my WordPress content into only Markdown files, see also <a href="https://renoirb.github.io/site/">renoirb.github.io/site</a>.
+  post_amount: 5
+  categories: true
+  categories_by_count: true
+
+
+footer:
+  rss: false
+  social: true
+
+
+social:
+  twitter: renoirb
+  youtube: '@renoirb'
+  linkedin: renoirb
+  github: renoirb
+  gitlab: renoirb
+  codepen: renoirb
+  stackoverflow: 852395 # User Number
+  mastodon: 'mastodon.social/@renoirb'
+
+
+social_share: ['twitter', 'email', 'linkedin', 'reddit']
+
+
+staticman:
+  # If using GitHub, go to https://github.com/apps/staticman-net
+  # If using GitLab, just add the GitLab bot, NO need to hit `/connect/v3/...`
+  enabled:  false
+  api:      home.renoirboulanger.com:57471  # without trailing slash, defaults to 'staticman3.herokuapp.com'
+  branch:   main

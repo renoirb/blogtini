@@ -284,10 +284,12 @@ async function main() {
   // eslint-disable-next-line no-use-before-define
   const [my_frontmatter, ...rest] = markdown_parse(document.getElementsByTagName('body')[0].innerHTML)
   const base = my_frontmatter?.base
+  const href = window.location.href
+  const maybe = href.replace(base ?? '', '')
 
-  console.log('blogtini 2', { state, my_frontmatter, rest })
+  console.log('blogtini 2', { state, base, baseMaybe: maybe, my_frontmatter, rest })
 
-  state.pathrel = state.is_homepage ? '' : '../' // xxxx generalize
+  state.pathrel = state.is_homepage ? '' : maybe // xxxx generalize
   state.top_dir = base ?? state.pathrel
   state.top_page = state.top_dir.concat(state.filedev ? 'index.html' : '')
 

@@ -37,7 +37,7 @@ comments:
   moderation: true
 
   # Name of the site. Used in notification emails.
-  name: "blogtini.com"
+  name: "renoirb.github.io/blogtini"
 
   # (*) REQUIRED
   #
