@@ -287,7 +287,7 @@ async function main() {
   const href = window.location.href
   const maybe = href.replace(base ?? '', '')
 
-  console.log('blogtini 2', { state, base, baseMaybe: maybe, my_frontmatter, rest })
+  console.log('RBx blogtini 1', { state, base, baseMaybe: maybe, my_frontmatter, rest })
 
   state.pathrel = state.is_homepage ? '' : maybe // xxxx generalize
   state.top_dir = base ?? state.pathrel
@@ -319,6 +319,7 @@ async function main() {
   if (!STORAGE.base)
     STORAGE.base = base
 
+  // fix foo.htmlconfig.yml
   tmp = yml.load(await fetcher(`${state.top_dir}config.yml`))
   if (tmp)
     cfg = { ...cfg, ...tmp } // xxx deep merge `sidebar` value hashmap, too
