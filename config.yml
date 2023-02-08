@@ -1,11 +1,12 @@
-title: Renoir Boulanger - blogtini
+title: Renoir Boulanger ✪ Trying out blogtini
 user: renoirb
 repo: blogtini
 git_provider: github
 img_site: https://files.mastodon.social/accounts/avatars/000/570/310/original/4f15ee9e18059aba.jpeg
 posts_per_page: 10
 remove_blur: true
-
+attribution: TODO
+view_more_posts_link: /foo/
 
 intro:
   rss: false
@@ -36,7 +37,7 @@ social:
   mastodon: 'mastodon.social/@renoirb'
 
 
-social_share: ['twitter', 'email', 'linkedin', 'reddit']
+social_share: ['twitter', 'email', 'linkedin']
 
 
 staticman:

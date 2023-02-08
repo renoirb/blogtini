@@ -226,6 +226,9 @@ function PR(str, val) {
 }
 
 function urlify(url) { // xxx only handles post or cgi; xxx assumes posts are 1-dir down from top
+
+  log('RBx blogtini urlify(url): ', { url })
+
   if (state.filedev && STORAGE.base && url.startsWith('https://'))
     // eslint-disable-next-line no-param-reassign
     url = url.replace(RegExp(`^${STORAGE.base}`), '')
@@ -233,8 +236,10 @@ function urlify(url) { // xxx only handles post or cgi; xxx assumes posts are 1-
   if (url.startsWith('https://'))
     return url
 
-  // eslint-disable-next-line no-param-reassign
-  url = url.replace(/\/index\.html$/, '')
+  if (url.endsWith('.html') === false && url.endsWith('/') === false) {
+    // eslint-disable-next-line no-param-reassign
+    url = url.replace(/\/index\.html$/, '')
+  }
 
   const cgi = url.startsWith('?')
   if (state.filedev) {
@@ -287,7 +292,16 @@ async function main() {
   const href = window.location.href
   const maybe = href.replace(base ?? '', '')
 
-  console.log('RBx blogtini 1', { state, base, baseMaybe: maybe, my_frontmatter, rest })
+  /*
+  const baseEndsWith = /\/$/.test(base)
+  const statePathrelEndsWith = /\/$/.test(state.pathrel)
+  if (/\/$/.test(base) && /\/$/.test(state.pathrel)) {
+
+  }
+  console.log('RBx blogtini main 1', { baseEndsWith, statePathrelEndsWith, state, base, baseMaybe: maybe, my_frontmatter, rest })
+  log('RBx blogtini main 1', { baseEndsWith })
+  */
+  console.log('RBx blogtini main 1', { state, base, baseMaybe: maybe, my_frontmatter, rest })
 
   state.pathrel = state.is_homepage ? '' : maybe // xxxx generalize
   state.top_dir = base ?? state.pathrel
@@ -325,7 +339,7 @@ async function main() {
     cfg = { ...cfg, ...tmp } // xxx deep merge `sidebar` value hashmap, too
 
 
-  log({
+  log('RBx blogtini main 2', {
     filter_post, base: STORAGE.base, STORAGE_KEY, cfg, state,
   })
 
@@ -333,6 +347,13 @@ async function main() {
   // eslint-disable-next-line no-use-before-define
   add_css(`${prefix}css/blogtini.css`) // xxxx theme.css
 
+
+  /*
+  const frag = document.createDocumentFragment()
+  document.querySelectorAll('script.blogtini-stuff').forEach(e => {
+    frag.appendChild(e)
+  })
+  */
 
   document.getElementsByTagName('body')[0].innerHTML = `
     ${'' /* eslint-disable-next-line no-use-before-define */}
@@ -392,7 +413,7 @@ async function storage_create() { // xxx
         ? `https://raw.githubusercontent.com/${cfg.user}/${cfg.repo}/${cfg.branch}/`
         : (state.sitemap_htm && !url2.startsWith('https://') && !url2.startsWith('http://') ? state.pathrel : '')
       ).concat(url2).concat(state.filedev && url2.endsWith('/') ? 'index.html' : '')
-      log({ file, url2, fetchee })
+      log('RBx blogtini storage_create 1', { file, url2, fetchee })
 
       proms.push(contents || fetch(fetchee))
 
@@ -409,7 +430,7 @@ async function storage_create() { // xxx
       files = []
       proms = []
     }
-    log({ state })
+    log('RBx blogtini storage_create 2', { state })
     if (state.num_posts)
       break
   }
@@ -436,7 +457,7 @@ function setup_base(urls) { // xxx get more sophisticated than this!  eg: if all
     const base = url_to_base(url)
     if (base) {
       STORAGE.base = base
-      log('BASE', STORAGE.base)
+      log('RBx blogtini setup_base', { 'STORAGE.base': STORAGE.base })
       return
     }
   }
@@ -455,7 +476,7 @@ async function find_posts() {
   state.use_github_api_for_files = false
 
   if (sitemap_urls) {
-    log({ sitemap_urls })
+    log('RBx blogtini find_posts 1', { sitemap_urls })
     FILES.push(...sitemap_urls)
     state.sitemap_htm = true
     if (!STORAGE.base)
@@ -465,10 +486,10 @@ async function find_posts() {
     FILES.push(location.pathname) // xxx
     state.sitemap_htm = false
   }
-  log({ cfg, state })
+  log('RBx blogtini find_posts 2', { cfg, state })
 
   const latest = FILES.filter((e) => e.endsWith('/') || e.match(/\.(md|markdown|html|htm)$/i)).sort().reverse() // xxx assumes file*names*, reverse sorted, is latest post first...
-  log(latest.slice(0, cfg.posts_per_page))
+  log('RBx blogtini find_posts 1', { latest: latest.slice(0, cfg.posts_per_page) })
 
   return latest
 }
@@ -480,7 +501,7 @@ async function find_posts_from_github_api_tree() {
   )
   // xxx NOTE: tree listing has sha details on branch and each file and more. useful?
   const files = listing?.tree?.map((e) => e.path) ?? []
-  log({ files })
+  log('RBx blogtini find_posts_from_github_api_tree 1', { files })
 
   // prefer one of these, in this order:
   // - prefer posts/  (excluding any README.md)
@@ -516,10 +537,10 @@ function markdown_to_post(markdown, url = location.pathname) {
   const [json, body_raw] = markdown_parse(markdown)
   if (!json) {
     // no front-matter or not parseable -- skip
-    log('not parseable', { url, markdown })
+    log('RBx blogtini markdown_to_post: Error ' + 'not parseable', { url, markdown })
   }
 
-  log({ json })
+  log('RBx blogtini markdown_to_post' + `(markdown, url=${url})`, { json })
 
   const title      = json.title?.trim() ?? ''
   const tags       = (json.tags       ?? []).map((e) => e.trim().replace(/ /g, '-').toLowerCase())
@@ -527,7 +548,7 @@ function markdown_to_post(markdown, url = location.pathname) {
   const date       = json.date || json.created_at || '' // xxx any more possibilities should do?
 
   if (!date) {
-    log('no date', { url, json })
+    log('RBx blogtini markdown_to_post: Error ' + 'no date', { url, json })
     return undefined
   }
 
@@ -536,7 +557,7 @@ function markdown_to_post(markdown, url = location.pathname) {
   const featured = json.featured?.trim() || json.featured_image?.trim() || (json.images
     ? (typeof json.images === 'object' ? json.images.shift() : json.images.trim())
     : '')
-  log({ date, featured })
+  log('RBx blogtini markdown_to_post:', { date, featured })
   // author xxx
 
   const post = {
@@ -719,6 +740,7 @@ function post1(post) {
 }
 
 function post_header(post) {
+  log('RBx blogtini post_header(post): ', { post })
   return `
 <header>
   <div class="title">
@@ -1148,10 +1170,10 @@ function wordcount(str) {
 
 function dark_mode() {
   if (window.matchMedia  &&  window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    log('bring on the darkness!')
+    log('RBx blogtini dark_mode: ' + 'bring on the darkness!')
     const hour = new Date().getHours()
     if (hour >= 7  &&  hour < 17) { // override [7am .. 5pm] localtime
-      log('.. but its vampire sleep time')
+      log('RBx blogtini dark_mode: ' + '.. but its vampire sleep time')
       document.getElementsByTagName('body')[0].classList.add('lite')
     }
     // macOS can force chrome to always use light mode (since it's slaved to mac sys pref otherwise)
