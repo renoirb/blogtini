@@ -1,1 +1,4 @@
+User-agent: *
+Allow: /about.html
+Disallow: /
 Sitemap: https://renoirb.github.io/blogtini/sitemap.xml

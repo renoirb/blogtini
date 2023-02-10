@@ -2,16 +2,31 @@
  * Dress up all the things
  */
 
-console.log('RBx blogtini 0 ------------ \n')
+// import { boolean } from 'https://renoirb.github.io/site-assets/static/esm-modules/stringificator-boolean.mjs'
+// window.booleaner = boolean
 
-import { boolean } from 'https://renoirb.github.io/site-assets/static/esm-modules/stringificator-boolean.mjs'
+/**
+ * What is the intented URL to expose this site, it's most likely over http, not "file://",
+ * and possibly not at the root of the domain name.
+ */
+const PRODUCTION_SITE_ROOT_BASE_URL = 'https://renoirb.github.io/blogtini/'
 
-window.booleaner = boolean
+/**
+ * This should work for file:/// URLs
+ * (assuming it's supported, Safari does, not Chromium thus far 2023-02-03)
+ */
+const SITE_ROOT_BASE_URL = await import.meta.url?.replace('theme.js', '') // await import.meta.resolve('./theme.js', import.meta.url) // ??'').replace('theme.js', '');
 
-const siteRootBaseUrl = await import.meta.resolve('./theme.js').replace('theme.js', '');
+document.body.dataset.siteRootBaseUrl = SITE_ROOT_BASE_URL
 
-console.log('RBx blogtini 1 theme.js ------------ \n', { siteRootBaseUrl })
-document.documentElement.setAttribute('data-site-root-base-url', siteRootBaseUrl)
+console.log('RBx blogtini 1 theme.js ------------ \n', {
+  PRODUCTION_SITE_ROOT_BASE_URL,
+  SITE_ROOT_BASE_URL,
+})
+
+window.addEventListener('blogtini', (evt) => {
+  console.warn('RBx blogtini EVENT ------------ \n', { evt })
+})
 
 // ----------
 let scriptElement = document.createElement('script')
@@ -19,34 +34,28 @@ scriptElement.setAttribute('type', 'importmap')
 scriptElement.setAttribute('id', 'main-imports')
 scriptElement.setAttribute('class', 'blogtini-stuff')
 const imports = {
-  boolean: 'https://renoirb.github.io/site-assets/static/esm-modules/stringificator-boolean.mjs',
-  'value-boolean-element': 'https://renoirb.github.io/site-assets/static/esm-modules/value-boolean.mjs',
+  '@renoirb/boolean':
+    'https://renoirb.github.io/site-assets/static/esm-modules/stringificator-boolean.mjs',
+  '@renoirb/value-boolean-element':
+    'https://renoirb.github.io/site-assets/static/esm-modules/value-boolean.mjs',
 }
-scriptElement.innerText = JSON.stringify({imports})
-document.head.appendChild(scriptElement)
+scriptElement.innerText = JSON.stringify({ imports })
+document.body.appendChild(scriptElement)
 scriptElement = document.createElement('script')
 scriptElement.setAttribute('type', 'application/json')
 scriptElement.setAttribute('id', 'appConfig')
 scriptElement.setAttribute('class', 'blogtini-stuff')
 const appConfig = {
-  siteRootBaseUrl: encodeURIComponent(siteRootBaseUrl),
+  SITE_ROOT_BASE_URL,
+  PRODUCTION_SITE_ROOT_BASE_URL,
 }
-// document.documentElement.setAttribute('data-poo', siteRootBaseUrl)
 scriptElement.innerText = JSON.stringify(appConfig)
-window.appConfig = structuredClone(appConfig)
-document.head.appendChild(scriptElement)
-// scriptElement = document.createElement('script')
-// scriptElement.setAttribute('type', 'module')
-// scriptElement.setAttribute('id', 'main')
-// scriptElement.setAttribute('charset', 'utf-8')
-// scriptElement.setAttribute('blocking', 'render')
-// scriptElement.setAttribute('async', '')
-// scriptElement.setAttribute('src', `${siteRootBaseUrl}js/blogtini.js?siteRootBaseUrl=${encodeURIComponent(siteRootBaseUrl)}`)
-// document.head.appendChild(scriptElement)
-// -----------
+document.body.appendChild(scriptElement)
 
-console.log('RBx blogtini 0 ------------ \n')
-
-import './js/blogtini.js'
-
-console.log('RBx blogtini 0 ------------ \n')
+import(
+  `./js/blogtini.js?SITE_ROOT_BASE_URL=${encodeURIComponent(
+    SITE_ROOT_BASE_URL,
+  )}&PRODUCTION_SITE_ROOT_BASE_URL=${encodeURIComponent(
+    PRODUCTION_SITE_ROOT_BASE_URL,
+  )}`
+)

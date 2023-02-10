@@ -162,12 +162,31 @@ import { krsort } from 'https://av.prod.archive.org/js/util/strings.js'
 import search_setup from './future-imperfect.js'
 import { markdown_to_html, summarize_markdown } from './text.js'
 
+import {
+  adjustProductionBaseUrlForDevelopment,
+  assertBaseUrlWithEndingSlash,
+  cleanUpInitialPayloadMarkup,
+  createBlogtiniStuffWrapper,
+  createBlogtiniEvent,
+  isBaseUrlHostForProduction,
+  isBaseUrlWithEndingSlash,
+} from './utils.mjs'
+
+
+const SITE_ROOT_BASE_URL = new URL(import.meta.url).searchParams.get("SITE_ROOT_BASE_URL")
+const PRODUCTION_SITE_ROOT_BASE_URL = new URL(import.meta.url).searchParams.get("PRODUCTION_SITE_ROOT_BASE_URL")
+
+assertBaseUrlWithEndingSlash(PRODUCTION_SITE_ROOT_BASE_URL)
+assertBaseUrlWithEndingSlash(SITE_ROOT_BASE_URL)
+
+console.log('RBx blogtini 2 ./js/blogtini.js ------------ \n', { PRODUCTION_SITE_ROOT_BASE_URL, SITE_ROOT_BASE_URL })
 
 // eslint-disable-next-line no-console
 const log = console.log.bind(console)
 
 
 const state = {
+  top_dir: SITE_ROOT_BASE_URL,
   tags: {},
   cats: {},
   use_github_api_for_files: null,
@@ -221,13 +240,20 @@ let cfg = {
 }
 
 
+
 function PR(str, val) {
   return val === '' || val === undefined || val === null ? '' : `${str[0]}${val}${str[1]}`
 }
 
-function urlify(url) { // xxx only handles post or cgi; xxx assumes posts are 1-dir down from top
+function urlify(input) { // xxx only handles post or cgi; xxx assumes posts are 1-dir down from top
 
-  log('RBx blogtini urlify(url): ', { url })
+  let url = input
+
+  console.log('RBx blogtini urlify 0', {
+    input,
+    'state.is_homepage': state.is_homepage,
+    'state.filedev': state.filedev
+  })
 
   if (state.filedev && STORAGE.base && url.startsWith('https://'))
     // eslint-disable-next-line no-param-reassign
@@ -249,6 +275,13 @@ function urlify(url) { // xxx only handles post or cgi; xxx assumes posts are 1-
       return (cgi ? `./index.html${url}` : `${url}/index.html`)
     return (cgi ? `../index.html${url}` : `../${url}/index.html`)
   }
+
+  console.log('RBx blogtini urlify 1', {
+    input,
+    url,
+    cgi,
+    'state.is_homepage': state.is_homepage,
+  })
 
   if (state.is_homepage)
     return (cgi ? `./${url}` : `${url}/`)
@@ -285,10 +318,14 @@ async function fetcher(url)  {
 async function main() {
   let tmp
 
+  const innerHTML = document.getElementsByTagName('body')[0].textContent
+
+  console.warn('RBx blogtini main 0 innerHTML', innerHTML)
+
   // see if this is an (atypical) "off site" page/post, compared to the main site
   // eslint-disable-next-line no-use-before-define
-  const [my_frontmatter, ...rest] = markdown_parse(document.getElementsByTagName('body')[0].innerHTML)
-  const base = my_frontmatter?.base
+  const [my_frontmatter, ...rest] = markdown_parse(innerHTML)
+  const base = my_frontmatter?.base ?? SITE_ROOT_BASE_URL
   const href = window.location.href
   const maybe = href.replace(base ?? '', '')
 
@@ -301,11 +338,22 @@ async function main() {
   console.log('RBx blogtini main 1', { baseEndsWith, statePathrelEndsWith, state, base, baseMaybe: maybe, my_frontmatter, rest })
   log('RBx blogtini main 1', { baseEndsWith })
   */
-  console.log('RBx blogtini main 1', { state, base, baseMaybe: maybe, my_frontmatter, rest })
 
-  state.pathrel = state.is_homepage ? '' : maybe // xxxx generalize
-  state.top_dir = base ?? state.pathrel
-  state.top_page = state.top_dir.concat(state.filedev ? 'index.html' : '')
+ state.pathrel = state.is_homepage ? '' : maybe // xxxx generalize
+ state.top_dir = base ?? state.pathrel
+ state.top_page = state.top_dir.concat(state.filedev ? 'index.html' : '')
+
+  console.warn('RBx blogtini main 1', {
+    'state.pathrel': state.pathrel,
+    'state.top_dir': state.top_dir,
+    'state.top_page': state.top_page,
+    'state.filedev': state.filedev,
+    href,
+    base,
+    baseMaybe: maybe,
+    my_frontmatter,
+    rest
+  })
 
   // eslint-disable-next-line no-use-before-define
   dark_mode()
@@ -343,26 +391,63 @@ async function main() {
     filter_post, base: STORAGE.base, STORAGE_KEY, cfg, state,
   })
 
-  const prefix = cfg.repo === 'blogtini' ? state.pathrel : 'https://blogtini.com/'
+  const prefix = cfg.repo === 'blogtini' ? state.top_dir : 'https://blogtini.com/'
   // eslint-disable-next-line no-use-before-define
   add_css(`${prefix}css/blogtini.css`) // xxxx theme.css
 
+  cleanUpInitialPayloadMarkup(document)
 
-  /*
-  const frag = document.createDocumentFragment()
-  document.querySelectorAll('script.blogtini-stuff').forEach(e => {
-    frag.appendChild(e)
-  })
+  /**
+   *
+   * ***************************************************************
+
+  // ==== attempt ====
+  // const frag = document.createDocumentFragment()
+  // frag.append(document.getElementsByTagName('body')[0].innerHTML)
+  //
+  // const originalContent = createOriginalContentDiv()
+  // originalContent.append(frag)
+  // document.body.appendChild(originalContent)
+  // console.log('wain', { originalContent })
+
+
+  // ==== attempt ====
+  // function wrap(node) {
+  //   const originalContent = createOriginalContentDiv()
+  //   node.parentNode.insertBefore(originalContent, node);
+  //   node.previousElementSibling.appendChild(node);
+  // }
+  // const originalContent = createOriginalContentDiv()
+  // wrap(document.body)
+  // const originalContent = document.createElement('div')
+  // originalContent.insertAdjacentElement('beforebegin', document.body.childNodes)
+  // document.body.insertAdjacentElement('beforebegin', originalContent)
+
+  // ==== attempt ====
+  // const frag = document.createDocumentFragment()
+  // frag.append(document.body.innerHTML)
+  // const originalContent = createOriginalContentDiv()
+  // originalContent.appendChild(frag)
+  // document.body.replacinsertAdjacentElement('beforebegin', originalContent)
+
+  // ==== SUCCESS: attempt ====
+  // const originalContent = createOriginalContentDiv()
+  // originalContent.append(...document.body.childNodes);
+  // document.body.appendChild(originalContent)
+
+  * ***************************************************************
   */
 
-  document.getElementsByTagName('body')[0].innerHTML = `
+  const blogtiniMain = createBlogtiniStuffWrapper(document, 'blogtini-main')
+  blogtiniMain.innerHTML = `<!-- RBx htmlString main BEGIN -->
     ${'' /* eslint-disable-next-line no-use-before-define */}
     ${site_start()}
-
+    <!-- RBx htmlString main -->
     <div id="posts"></div>
-
     ${'' /* eslint-disable-next-line no-use-before-define */}
-    ${site_end()}`
+    ${site_end()}
+    <!-- RBx htmlString main END -->`
+  document.getElementsByTagName('body')[0].prepend(blogtiniMain)
 
 /*
 cfg.repo = 'blogtini'
@@ -390,6 +475,10 @@ async function storage_create() { // xxx
     // eslint-disable-next-line no-use-before-define
     const latest = pass ? await find_posts() : await find_posts_from_github_api_tree()
 
+    console.warn('RBx blogtini storage_create 0', {
+      latest,
+    })
+
     let proms = []
     let files = []
     for (let n = 0; n < latest.length; n++) {
@@ -408,12 +497,20 @@ async function storage_create() { // xxx
 
       const url2 = state.filedev && STORAGE.base ? url.replace(RegExp(`^${STORAGE.base}`), '') : url
 
+      console.warn('RBx blogtini storage_create 1', {
+        url2,
+        file,
+        contents,
+        'state.sitemap_htm': state.sitemap_htm,
+        'state.use_github_api_for_files': state.use_github_api_for_files,
+      })
+
       const fetchee = // eslint-disable-next-line no-nested-ternary
       (state.use_github_api_for_files
         ? `https://raw.githubusercontent.com/${cfg.user}/${cfg.repo}/${cfg.branch}/`
         : (state.sitemap_htm && !url2.startsWith('https://') && !url2.startsWith('http://') ? state.pathrel : '')
       ).concat(url2).concat(state.filedev && url2.endsWith('/') ? 'index.html' : '')
-      log('RBx blogtini storage_create 1', { file, url2, fetchee })
+      console.warn('RBx blogtini storage_create 2', { file, url2, fetchee })
 
       proms.push(contents || fetch(fetchee))
 
@@ -430,7 +527,7 @@ async function storage_create() { // xxx
       files = []
       proms = []
     }
-    log('RBx blogtini storage_create 2', { state })
+    console.warn('RBx blogtini storage_create 3', { state })
     if (state.num_posts)
       break
   }
@@ -466,24 +563,36 @@ function setup_base(urls) { // xxx get more sophisticated than this!  eg: if all
 
 async function find_posts() {
   const FILES = []
+  const sitemapUrl = `${state.top_dir}sitemap.xml`
+  console.warn('RBx blogtini find_posts', { sitemapUrl })
 
-  const sitemap_urls = (await fetcher(`${state.top_dir}sitemap.xml`))?.split('<loc>')
+  const sitemap_urls = (await fetcher(sitemapUrl))?.split('<loc>')
     .slice(1)
     .map((e) => e.split('</loc>').slice(0, 1).join(''))
     .filter((e) => e !== '')
+    .map((locUrl) => {
+      const rewrittenLocUrl = locUrl.replace(
+        new RegExp('^' + PRODUCTION_SITE_ROOT_BASE_URL),
+        SITE_ROOT_BASE_URL,
+      )
+      return rewrittenLocUrl;
+    })
+
+  console.warn('RBx blogtini find_posts', { sitemap_urls })
 
   state.try_github_api_tree = false
   state.use_github_api_for_files = false
 
   if (sitemap_urls) {
-    log('RBx blogtini find_posts 1', { sitemap_urls })
+    log('RBx blogtini find_posts 1 with sitemap_urls', { sitemap_urls })
     FILES.push(...sitemap_urls)
     state.sitemap_htm = true
     if (!STORAGE.base)
       setup_base(sitemap_urls)
   } else {
+    log('RBx blogtini find_posts 1 NO sitemap_urls')
     // handles the "i'm just trying it out" / no sitemap case
-    FILES.push(location.pathname) // xxx
+    FILES.push(state.top_dir) // xxx
     state.sitemap_htm = false
   }
   log('RBx blogtini find_posts 2', { cfg, state })
@@ -523,11 +632,16 @@ function markdown_parse(markdown) {
   const front_matter = chunks.shift()
   const body_raw = chunks.join('\n---')
 
+  console.warn('RBx blogtini markdown_parse 0', front_matter)
+
   try {
+    console.warn('RBx blogtini markdown_parse 1', front_matter)
     const parsed = yml.load(front_matter)
     return [parsed, body_raw]
     // eslint-disable-next-line no-empty
-  } catch {}
+  } catch (e) {
+    console.error('RBx blogtini markdown_parse 1 error', e);
+  }
 
   return [undefined, undefined]
 }
@@ -540,7 +654,7 @@ function markdown_to_post(markdown, url = location.pathname) {
     log('RBx blogtini markdown_to_post: Error ' + 'not parseable', { url, markdown })
   }
 
-  log('RBx blogtini markdown_to_post' + `(markdown, url=${url})`, { json })
+  console.warn('RBx blogtini markdown_to_post' + `(markdown, url=${url})`, { markdown, body_raw, json })
 
   const title      = json.title?.trim() ?? ''
   const tags       = (json.tags       ?? []).map((e) => e.trim().replace(/ /g, '-').toLowerCase())
@@ -605,6 +719,16 @@ async function storage_loop() {
       state.cats[cat].push(post.url)
     }
 
+    console.warn('RBx blogtini storage_loop 0', {
+      'post.url': post.url,
+      post,
+      'post.type': post.type,
+      "!('type' in post)": !('type' in post),
+      filter_post,
+      filter_tag,
+      filter_cat,
+    })
+
     if (filter_tag.length  &&       !(post.tags.includes(filter_tag))) continue
     if (filter_cat.length  && !(post.categories.includes(filter_cat))) continue
     if (filter_post) {
@@ -638,9 +762,21 @@ async function storage_loop() {
     // const postxxx = date: post.date.toString().split(' ').slice(0, 4).join(' ')
 
     if (filter_post) {
-      document.getElementsByTagName('body')[0].innerHTML =
-        // eslint-disable-next-line no-use-before-define
-        await post_full(post)
+      const postFullHtml = await post_full(post)
+
+      console.warn('RBx blogtini storage_loop 1', {
+        'post.url': post.url,
+        post,
+        'post.type': post.type,
+        postFullHtml,
+      })
+
+      // TODO: Why always trashing the full body?
+      document.getElementsByTagName('body')[0].innerHTML = `
+        ${'' /* eslint-disable-next-line no-use-before-define */}
+        <!-- RBx htmlString storage_loop, post_full -->
+        ${postFullHtml}
+      `
 
       // copy sharing buttons to the fly-out menu
       document.getElementById('share-menu').insertAdjacentHTML(
@@ -683,7 +819,7 @@ async function post_full(post) {
     comments_form = await create_comment_form(post.url, comments_htm)
   }
 
-  return `
+  return `<!-- RBx htmlString post_full BEGIN -->
     ${'' /* eslint-disable-next-line no-use-before-define */}
     ${site_start()}
 
@@ -714,14 +850,15 @@ async function post_full(post) {
     </article>
 
     ${'' /* eslint-disable-next-line no-use-before-define */}
-    ${site_end()}`
+    ${site_end()}
+    <!-- RBx htmlString post_full END -->`
 }
 
 
 function post1(post) {
   const summary = summarize_markdown(post.body_raw, cfg.summary_length)
 
-  return `
+  return `<!-- RBx htmlString post1 -->
 <article class="post">
   ${'' /* eslint-disable-next-line no-use-before-define */}
   ${post_header(post)}
@@ -932,6 +1069,7 @@ async function create_comment_form(entryId, comments) {
 
   const xxx = '' // reply stuff
   return `
+  <!-- RBx htmlString create_comment_form -->
   <div class="post">
     <div>
       <h2 id="say-something">Say Something</h2>
