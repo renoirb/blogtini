@@ -1,5 +1,8 @@
-<urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-  
+<urlset 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd"
+>
 
   <url>
     <loc>https://renoirb.github.io/blogtini/about.html</loc>
@@ -9,6 +12,11 @@
   <url>
     <loc>https://renoirb.github.io/blogtini/blog/2020/02/harmonizing-how-to-bundle-and-package-features.html</loc>
     <lastmod>2020-02-04T20:55:06-04:00</lastmod>
+  </url>
+
+  <url>
+    <loc>https://renoirb.github.io/blogtini/blog/2015/05/run-nodejs-process-forever-within-docker-container</loc>
+    <lastmod>2015-05-12T13:44:11-04:00</lastmod>
   </url>
 
   <url>
@@ -25,4 +33,5 @@
     <loc>https://renoirb.github.io/blogtini/blog/2015/05/converting-dynamic-site-static-copy/</loc>
     <lastmod>2023-02-11T23:44:11-04:00</lastmod>
   </url>
+
 </urlset>

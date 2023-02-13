@@ -4,6 +4,8 @@
     <p>
       Just a quick simple page where we could use a custom element instead.
     </p>
+    <hr />
+    <div id="from-gist"></div>
   </div>
   <div slot="top-right">
     ...
@@ -16,37 +18,14 @@
 </style>
 
 <!--
-    JSPM Generator Import Map
-    Edit URL: https://generator.jspm.io/#U2VhYGBkDM0rySzJSU1hcMjJLNHNSUwq1k/OzytJrShxMNAz0jMAAFKaYfwmAA
-  -->
-<script type="importmap">
-  {
-    "imports": {
-      "@lit-labs/context": "https://ga.jspm.io/npm:@lit-labs/context@0.2.0/development/index.js"
-    },
-    "scopes": {
-      "https://ga.jspm.io/": {
-        "@lit/reactive-element/decorators/base.js": "https://ga.jspm.io/npm:@lit/reactive-element@1.6.1/development/decorators/base.js"
-      }
-    }
-  }
-</script>
-
-<!-- ES Module Shims: Import maps polyfill for modules browsers without import maps support (all except Chrome 89+) -->
-<script
-  async
-  src="https://ga.jspm.io/npm:es-module-shims@1.5.1/dist/es-module-shims.js"
-  crossorigin="anonymous"
-></script>
+  TODO?: JSPM Generator Import Map
+  Edit URL: https://generator.jspm.io/#U2VhYGBkDM0rySzJSU1hcMjJLNHNSUwq1k/OzytJrShxMNAz0jMAAFKaYfwmAA
+-->
 
 <script type="module">
-  import { setup } from 'https://renoirb.github.io/site-assets/static/esm-modules/app-layout.mjs?noAutoRegister'
-
-  // import { loadFromGistOn } from 'https://renoirb.github.io/site-assets/static/esm-modules/load-from-gist.mjs'
-  // import * as LabsContext from '@lit-labs/context'
-  // console.log('using-app-layout', { LabsContext, converter })
-
-  // Register AppLayout under a different name
-  setup(window, 'renoirb-app-layout')
+  import { registerCustomElement } from 'https://renoirb.com/esm-modules/app-layout-element.mjs'
+  import { loadFromGitHub } from 'https://renoirb.com/esm-modules/load-from-github.mjs'
+  registerCustomElement(window, 'renoirb-app-layout')
+  loadFromGitHub(document.querySelector('#from-gist'), '21e31aab8d4cbcebb24afede7c49e449', '0README.md')
 </script>
 

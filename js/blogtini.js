@@ -486,6 +486,12 @@ async function storage_create() { // xxx
       const mat = url.match(/^(.*)\/([^/]+)$/) || url.match(/^()([^/]+)$/)
       const file = state.sitemap_htm ? latest[n] : mat[2]
 
+      console.warn('RBx blogtini storage_create 1', {
+        url,
+        mat,
+        file,
+      })
+
       // very first markdown file fetch -- let's autodetect if we can load markdown files directly
       // from the website or need to fallback to the github raw url
       let contents
@@ -497,7 +503,8 @@ async function storage_create() { // xxx
 
       const url2 = state.filedev && STORAGE.base ? url.replace(RegExp(`^${STORAGE.base}`), '') : url
 
-      console.warn('RBx blogtini storage_create 1', {
+      console.warn('RBx blogtini storage_create 2', {
+        url,
         url2,
         file,
         contents,
@@ -510,7 +517,7 @@ async function storage_create() { // xxx
         ? `https://raw.githubusercontent.com/${cfg.user}/${cfg.repo}/${cfg.branch}/`
         : (state.sitemap_htm && !url2.startsWith('https://') && !url2.startsWith('http://') ? state.pathrel : '')
       ).concat(url2).concat(state.filedev && url2.endsWith('/') ? 'index.html' : '')
-      console.warn('RBx blogtini storage_create 2', { file, url2, fetchee })
+      console.warn('RBx blogtini storage_create 3', { file, url2, fetchee })
 
       proms.push(contents || fetch(fetchee))
 
@@ -527,7 +534,7 @@ async function storage_create() { // xxx
       files = []
       proms = []
     }
-    console.warn('RBx blogtini storage_create 3', { state })
+    console.warn('RBx blogtini storage_create 4', { state })
     if (state.num_posts)
       break
   }
