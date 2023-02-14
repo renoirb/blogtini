@@ -156,6 +156,7 @@ import showdown from 'https://esm.archive.org/showdown'
 import hljs from 'https://esm.archive.org/highlightjs'
 
 import { krsort } from 'https://av.prod.archive.org/js/util/strings.js'
+import { registerCustomElements } from './partials.mjs'
 
 // adds header click actions, etc.
 // eslint-disable-next-line import/no-named-as-default
@@ -173,17 +174,21 @@ import {
   splitFrontMatterAndMarkdown,
 } from './utils.mjs'
 
-
-const dayJsHelper = dayjs()
-showdown.setFlavor('github') // xxx?
-
-
 const SITE_ROOT_BASE_URL = new URL(import.meta.url).searchParams.get("SITE_ROOT_BASE_URL")
 const PRODUCTION_SITE_ROOT_BASE_URL = new URL(import.meta.url).searchParams.get("PRODUCTION_SITE_ROOT_BASE_URL")
 const FILE_SLASH_SLASH_SLASH_SITE_ROOT_BASE_URL = /^file\:\//.test(SITE_ROOT_BASE_URL)
 
 assertBaseUrlWithEndingSlash(PRODUCTION_SITE_ROOT_BASE_URL)
 assertBaseUrlWithEndingSlash(SITE_ROOT_BASE_URL)
+
+
+const dayJsHelper = dayjs()
+showdown.setFlavor('github') // xxx?
+
+// Register stuff
+registerCustomElements(window)
+
+
 
 const state = {
   top_dir: SITE_ROOT_BASE_URL,
@@ -249,7 +254,7 @@ function urlify(input) { // xxx only handles post or cgi; xxx assumes posts are 
 
   let url = input
 
-  console.log('RBx blogtini urlify 0', {
+  console.log('blogtini urlify 0', {
     input,
     'state.is_homepage': state.is_homepage,
     'state.filedev': state.filedev
@@ -276,7 +281,7 @@ function urlify(input) { // xxx only handles post or cgi; xxx assumes posts are 
     return (cgi ? `../index.html${url}` : `../${url}/index.html`)
   }
 
-  console.log('RBx blogtini urlify 1', {
+  console.log('blogtini urlify 1', {
     input,
     url,
     cgi,
@@ -581,7 +586,7 @@ async function storage_create() { // xxx
        */
       const documentResponseObjects = files.reduce((obj, key, idx) => ({ ...obj, [key]: vals[idx] }), {})
 
-      console.warn('RBx blogtini storage_create 5', documentResponseObjects)
+      console.debug('blogtini storage_create 5', documentResponseObjects)
 
       // eslint-disable-next-line no-use-before-define
       await parse_posts(documentResponseObjects)
@@ -589,7 +594,7 @@ async function storage_create() { // xxx
       files = []
       proms = []
     }
-    console.warn('RBx blogtini storage_create 6', { state })
+    console.debug('blogtini storage_create 6', { state })
     if (state.num_posts)
       break
   }
@@ -615,7 +620,7 @@ function setup_base(urls) { // xxx get more sophisticated than this!  eg: if all
   console.debug('blogtini setup_base 0', { urls })
   for (const url of urls) {
     const base = url_to_base(url)
-    console.debug('blogtini setup_base 0', { base, url })
+    console.debug('blogtini setup_base 0', { url_to_base: base, url })
     if (base) {
       STORAGE.base = base
       return
@@ -647,28 +652,28 @@ async function find_posts() {
       return locUrlOut;
     })
 
-    console.debug('blogtini find_posts 2', { sitemap_urls })
+    console.debug('blogtini find_posts 1', { sitemap_urls })
 
   state.try_github_api_tree = false
   state.use_github_api_for_files = false
 
   if (sitemap_urls) {
-    console.debug('RBx blogtini find_posts 1 with sitemap_urls', { sitemap_urls })
+    console.debug('blogtini find_posts 2a with sitemap_urls', { sitemap_urls })
     FILES.push(...sitemap_urls)
     state.sitemap_htm = true
     if (!STORAGE.base) {
       setup_base(sitemap_urls)
     }
   } else {
-    console.debug('RBx blogtini find_posts 1 NO sitemap_urls')
+    console.debug('blogtini find_posts 2b NO sitemap_urls')
     // handles the "i'm just trying it out" / no sitemap case
     FILES.push(state.top_dir) // xxx
     state.sitemap_htm = false
   }
-  console.debug('RBx blogtini find_posts 2', { cfg, state })
+  console.debug('blogtini find_posts 3', { cfg, state })
 
   const latest = FILES.filter((e) => e.endsWith('/') || e.match(/\.(md|markdown|html|htm)$/i)).sort().reverse() // xxx assumes file*names*, reverse sorted, is latest post first...
-  console.debug('RBx blogtini find_posts 1', { latest: latest.slice(0, cfg.posts_per_page) })
+  console.debug('blogtini find_posts 1', { latest: latest.slice(0, cfg.posts_per_page) })
 
   return latest
 }
@@ -680,7 +685,7 @@ async function find_posts_from_github_api_tree() {
   )
   // xxx NOTE: tree listing has sha details on branch and each file and more. useful?
   const files = listing?.tree?.map((e) => e.path) ?? []
-  console.debug('RBx blogtini find_posts_from_github_api_tree 1', { files })
+  console.debug('blogtini find_posts_from_github_api_tree 1', { files })
 
   // prefer one of these, in this order:
   // - prefer posts/  (excluding any README.md)
@@ -703,12 +708,12 @@ function markdown_parse(markdown) {
   const front_matter = chunks.shift()
   const body_raw = chunks.join('\n---')
 
-  console.debug('RBx blogtini markdown_parse 0', { front_matter, body_raw })
-  console.debug('RBx blogtini markdown_parse 0', { front_matter2, body_raw2 })
+  console.debug('blogtini markdown_parse 0', { front_matter, body_raw })
+  console.debug('blogtini markdown_parse 0', { front_matter2, body_raw2 })
 
   try {
     const parsed = yml.load(front_matter)
-    console.debug('RBx blogtini markdown_parse 1', {
+    console.debug('blogtini markdown_parse 1', {
       front_matter_raw: front_matter,
       front_matter: parsed,
       body_raw,
@@ -716,7 +721,7 @@ function markdown_parse(markdown) {
     return [parsed, body_raw]
     // eslint-disable-next-line no-empty
   } catch (e) {
-    console.error('RBx blogtini markdown_parse 1 error', e);
+    console.error('blogtini markdown_parse 1 error', e);
   }
 
   return [undefined, undefined]
@@ -804,7 +809,7 @@ async function storage_loop() {
       state.cats[cat].push(post.url)
     }
 
-    console.warn('RBx blogtini storage_loop 0', {
+    console.debug('blogtini storage_loop 0', {
       'post.url': post.url,
       post,
       'post.type': post.type,
@@ -842,14 +847,15 @@ async function storage_loop() {
       head_insert_titles(`posts in category: ${filter_cat} - blogtini.com`) // xxx
     }
 
-    if (!('type' in post))
+    if (!('type' in post)) {
       post.type = 'post'
+    }
     // const postxxx = date: post.date.toString().split(' ').slice(0, 4).join(' ')
 
     if (filter_post) {
       const postFullHtml = await post_full(post)
 
-      console.warn('RBx blogtini storage_loop 1', {
+      console.debug('blogtini storage_loop 1', {
         'post.url': post.url,
         post,
         'post.type': post.type,
@@ -874,8 +880,9 @@ async function storage_loop() {
     }
   }
 
-  if (!filter_post)
+  if (!filter_post) {
     document.getElementById('posts').insertAdjacentHTML('beforeend', htm)
+  }
 }
 
 
@@ -967,7 +974,7 @@ function post1(post) {
 }
 
 function post_header(post) {
-  console.debug('RBx blogtini post_header(post): ', { post })
+  console.debug('blogtini post_header(post): ', { post })
   return `
 <header>
   <div class="title">
@@ -992,10 +999,14 @@ function post_featured(post) {
   let blur
   let stretch = cfg.image_stretch ?? ''
 
+  console.debug(`blogtini post_featured 0 `, { post })
+
   if (post.featured) {
     // eslint-disable-next-line max-len
     // xxx original: {{- $src = (path.Join "img" (cond (eq .Params.featuredpath "date") (.Page.Date.Format "2006/01") (.Params.featuredpath)) .Params.featured) | relURL -}}
     src = post.featured?.match(/\//) ? post.featured : `${state.top_dir}img/${post.featured}` // xxx img/ parameterize
+
+    console.debug(`blogtini post_featured 1 post.featured`, { src })
 
     alt = post.featuredalt
     stretch = (post.featuredstretch ?? '').toLowerCase()
@@ -1401,7 +1412,7 @@ function dark_mode() {
     console.info('blogtini dark_mode: ' + 'bring on the darkness!')
     const hour = new Date().getHours()
     if (hour >= 7  &&  hour < 17) { // override [7am .. 5pm] localtime
-      console.info('RBx blogtini dark_mode: ' + '.. but its vampire sleep time')
+      console.info('blogtini dark_mode: ' + '.. but its vampire sleep time')
       document.getElementsByTagName('body')[0].classList.add('lite')
     }
     // macOS can force chrome to always use light mode (since it's slaved to mac sys pref otherwise)
