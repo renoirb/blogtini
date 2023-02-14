@@ -19,10 +19,12 @@ const SITE_ROOT_BASE_URL = await import.meta.url?.replace('theme.js', '') // awa
 
 document.body.dataset.siteRootBaseUrl = SITE_ROOT_BASE_URL
 
+/*
 console.log('RBx blogtini 1 theme.js ------------ \n', {
   PRODUCTION_SITE_ROOT_BASE_URL,
   SITE_ROOT_BASE_URL,
 })
+*/
 
 window.addEventListener('blogtini', (evt) => {
   console.warn('RBx blogtini EVENT ------------ \n', { evt })

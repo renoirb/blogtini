@@ -170,20 +170,20 @@ import {
   createBlogtiniEvent,
   isBaseUrlHostForProduction,
   isBaseUrlWithEndingSlash,
+  splitFrontMatterAndMarkdown,
 } from './utils.mjs'
+
+
+const dayJsHelper = dayjs()
+showdown.setFlavor('github') // xxx?
 
 
 const SITE_ROOT_BASE_URL = new URL(import.meta.url).searchParams.get("SITE_ROOT_BASE_URL")
 const PRODUCTION_SITE_ROOT_BASE_URL = new URL(import.meta.url).searchParams.get("PRODUCTION_SITE_ROOT_BASE_URL")
+const FILE_SLASH_SLASH_SLASH_SITE_ROOT_BASE_URL = /^file\:\//.test(SITE_ROOT_BASE_URL)
 
 assertBaseUrlWithEndingSlash(PRODUCTION_SITE_ROOT_BASE_URL)
 assertBaseUrlWithEndingSlash(SITE_ROOT_BASE_URL)
-
-console.log('RBx blogtini 2 ./js/blogtini.js ------------ \n', { PRODUCTION_SITE_ROOT_BASE_URL, SITE_ROOT_BASE_URL })
-
-// eslint-disable-next-line no-console
-const log = console.log.bind(console)
-
 
 const state = {
   top_dir: SITE_ROOT_BASE_URL,
@@ -318,42 +318,55 @@ async function fetcher(url)  {
 async function main() {
   let tmp
 
-  const innerHTML = document.getElementsByTagName('body')[0].textContent
+  /**
+   * Pick all content of the page, let's figure out what to do with it.
+   * Beware, if we use innerHTML and want the front-matter not to be with escaped entities
+   * we got to use textContent instead.
+   */
+  const textContent = document.getElementsByTagName('body')[0].textContent
+  const [raw_fm] = splitFrontMatterAndMarkdown(textContent)
 
-  console.warn('RBx blogtini main 0 innerHTML', innerHTML)
+  let my_frontmatter = {}
+  try {
+    const loaded = yml.load(raw_fm)
+    my_frontmatter = loaded
+  } catch (e) {
+    console.error('blogtini main ERROR loading YAML', e)
+    my_frontmatter = {}
+  }
 
-  // see if this is an (atypical) "off site" page/post, compared to the main site
-  // eslint-disable-next-line no-use-before-define
-  const [my_frontmatter, ...rest] = markdown_parse(innerHTML)
   const base = my_frontmatter?.base ?? SITE_ROOT_BASE_URL
   const href = window.location.href
   const maybe = href.replace(base ?? '', '')
 
-  /*
-  const baseEndsWith = /\/$/.test(base)
-  const statePathrelEndsWith = /\/$/.test(state.pathrel)
-  if (/\/$/.test(base) && /\/$/.test(state.pathrel)) {
+  state.pathrel = state.is_homepage ? '' : maybe // xxxx generalize
+  state.top_dir = base ?? state.pathrel
+  state.top_page = state.top_dir.concat(state.filedev ? 'index.html' : '')
 
-  }
-  console.log('RBx blogtini main 1', { baseEndsWith, statePathrelEndsWith, state, base, baseMaybe: maybe, my_frontmatter, rest })
-  log('RBx blogtini main 1', { baseEndsWith })
-  */
 
- state.pathrel = state.is_homepage ? '' : maybe // xxxx generalize
- state.top_dir = base ?? state.pathrel
- state.top_page = state.top_dir.concat(state.filedev ? 'index.html' : '')
-
-  console.warn('RBx blogtini main 1', {
-    'state.pathrel': state.pathrel,
-    'state.top_dir': state.top_dir,
-    'state.top_page': state.top_page,
-    'state.filedev': state.filedev,
+  // ------------ just noise to clean up ------------
+  let debuggingState = {}
+  Object.keys(state).forEach((k) => {
+    let v = void 0
+    try {
+      const i = JSON.stringify(Reflect.get(state, k))
+      const j = JSON.parse(i)
+      // Whatev
+      v = j
+    } catch {
+      // nofing
+    }
+    Reflect.set(debuggingState, k, v)
+  })
+  console.debug('blogtini main 1', {
+    state: debuggingState,
     href,
     base,
     baseMaybe: maybe,
     my_frontmatter,
-    rest
   })
+  // ------------ just noise to clean up ------------
+
 
   // eslint-disable-next-line no-use-before-define
   dark_mode()
@@ -377,23 +390,41 @@ async function main() {
   // default expect github pages hostname - user can override via their own `config.yml` file
   [tmp, cfg.user, cfg.repo] = location.href.match(/^https:\/\/(.*)\.github\.io\/([^/]+)/) || ['', '', '']
 
-
-  if (!STORAGE.base)
-    STORAGE.base = base
-
-  // fix foo.htmlconfig.yml
-  tmp = yml.load(await fetcher(`${state.top_dir}config.yml`))
-  if (tmp)
-    cfg = { ...cfg, ...tmp } // xxx deep merge `sidebar` value hashmap, too
+  // RBx: What is that
+  const contrivance = location.href.match(/^https:\/\/(.*)\.github\.io\/([^/]+)/)
 
 
-  log('RBx blogtini main 2', {
-    filter_post, base: STORAGE.base, STORAGE_KEY, cfg, state,
+  console.debug('blogtini main 2', {
+    'STORAGE.base': STORAGE.base,
+    STORAGE_KEY,
+    contrivance,
+    contrivanceDebug: [ tmp, cfg.user, cfg.repo ],
+    state,
+    filter_post,
   })
 
-  const prefix = cfg.repo === 'blogtini' ? state.top_dir : 'https://blogtini.com/'
-  // eslint-disable-next-line no-use-before-define
-  add_css(`${prefix}css/blogtini.css`) // xxxx theme.css
+  if (!STORAGE.base) {
+    STORAGE.base = base
+  }
+
+  // RBx: fix https://example.org/foo.htmlconfig.yml
+  const configYamlUrl = `${SITE_ROOT_BASE_URL}config.yml`
+  // RBx: YAML loads fetch for file:/// URL when yaml file, but not html documents?
+  tmp = yml.load(await fetcher(configYamlUrl))
+  if (tmp) {
+    cfg = { ...cfg, ...tmp } // xxx deep merge `sidebar` value hashmap, too
+  }
+
+  console.debug('blogtini main 3', {
+    'STORAGE.base': STORAGE.base,
+    configYamlUrl,
+    contrivance,
+    contrivanceDebug: [ tmp, cfg.user, cfg.repo ],
+    state,
+    filter_post,
+  })
+
+  add_css(`${SITE_ROOT_BASE_URL}css/blogtini.css`) // xxxx theme.css
 
   cleanUpInitialPayloadMarkup(document)
 
@@ -408,7 +439,6 @@ async function main() {
   // const originalContent = createOriginalContentDiv()
   // originalContent.append(frag)
   // document.body.appendChild(originalContent)
-  // console.log('wain', { originalContent })
 
 
   // ==== attempt ====
@@ -447,17 +477,24 @@ async function main() {
     ${'' /* eslint-disable-next-line no-use-before-define */}
     ${site_end()}
     <!-- RBx htmlString main END -->`
+
   document.getElementsByTagName('body')[0].prepend(blogtiniMain)
 
-/*
-cfg.repo = 'blogtini'
-cfg.user = 'ajaquith'; cfg.repo = 'securitymetrics'; cfg.branch = 'master'
-log('xxxx testitos', await find_posts_from_github_api_tree()); return
-*/
+  const storageCreatedIsSomethingToFigureOutWhat = STORAGE.created !== dayJsHelper.format('MMM D, YYYY')
+  const storageKeysLength = !Object.keys(STORAGE).length
+  const whataf = storageKeysLength || storageCreatedIsSomethingToFigureOutWhat
 
-  if (!Object.keys(STORAGE).length || STORAGE.created !== dayjs().format('MMM D, YYYY'))
+  console.debug('blogtini main 4', {
+    storageCreatedIsSomethingToFigureOutWhat,
+    storageKeysLength,
+    'storageKeysLength || storageCreatedIsSomethingToFigureOutWhat': storageKeysLength || storageCreatedIsSomethingToFigureOutWhat,
+  })
+
+  // What's that condition checking!?
+  if (storageKeysLength || storageCreatedIsSomethingToFigureOutWhat) {
     // eslint-disable-next-line no-use-before-define
     await storage_create()
+  }
 
   // eslint-disable-next-line no-use-before-define
   await storage_loop()
@@ -468,14 +505,20 @@ log('xxxx testitos', await find_posts_from_github_api_tree()); return
 
 
 async function storage_create() { // xxx
-  STORAGE.created = dayjs().format('MMM D, YYYY')
+  const created = dayJsHelper.format('MMM D, YYYY')
+
+  STORAGE.created = created
   STORAGE.docs = STORAGE.docs || {}
+
+  console.debug('blogtini storage_create 0', {
+    created,
+  })
 
   for (const pass of [1, 0]) {
     // eslint-disable-next-line no-use-before-define
     const latest = pass ? await find_posts() : await find_posts_from_github_api_tree()
 
-    console.warn('RBx blogtini storage_create 0', {
+    console.debug('blogtini storage_create 1', {
       latest,
     })
 
@@ -486,7 +529,7 @@ async function storage_create() { // xxx
       const mat = url.match(/^(.*)\/([^/]+)$/) || url.match(/^()([^/]+)$/)
       const file = state.sitemap_htm ? latest[n] : mat[2]
 
-      console.warn('RBx blogtini storage_create 1', {
+      console.debug(`blogtini storage_create 2 loop (n: ${n})`, {
         url,
         mat,
         file,
@@ -503,7 +546,7 @@ async function storage_create() { // xxx
 
       const url2 = state.filedev && STORAGE.base ? url.replace(RegExp(`^${STORAGE.base}`), '') : url
 
-      console.warn('RBx blogtini storage_create 2', {
+      console.debug(`blogtini storage_create 3 loop (n: ${n})`, {
         url,
         url2,
         file,
@@ -512,12 +555,15 @@ async function storage_create() { // xxx
         'state.use_github_api_for_files': state.use_github_api_for_files,
       })
 
+      // Oh. My. Gawd. Brain. Panic.
+
       const fetchee = // eslint-disable-next-line no-nested-ternary
       (state.use_github_api_for_files
         ? `https://raw.githubusercontent.com/${cfg.user}/${cfg.repo}/${cfg.branch}/`
         : (state.sitemap_htm && !url2.startsWith('https://') && !url2.startsWith('http://') ? state.pathrel : '')
       ).concat(url2).concat(state.filedev && url2.endsWith('/') ? 'index.html' : '')
-      console.warn('RBx blogtini storage_create 3', { file, url2, fetchee })
+
+      console.debug(`blogtini storage_create 4 loop (n: ${n})`, { file, url2, contents, fetchee })
 
       proms.push(contents || fetch(fetchee))
 
@@ -526,15 +572,24 @@ async function storage_create() { // xxx
 
       // now make the requests in parallel and wait for them all to answer.
       const vals = await Promise.all(proms)
-      const file2markdown = files.reduce((obj, key, idx) => ({ ...obj, [key]: vals[idx] }), {})
+
+      /**
+       * documentResponseObjects: They're a collection of HTTP Response objects.
+       *
+       * That's where we can get the HTTP Response of files,
+       * maybe we should keep the response headers and use in storage.
+       */
+      const documentResponseObjects = files.reduce((obj, key, idx) => ({ ...obj, [key]: vals[idx] }), {})
+
+      console.warn('RBx blogtini storage_create 5', documentResponseObjects)
 
       // eslint-disable-next-line no-use-before-define
-      await parse_posts(file2markdown)
+      await parse_posts(documentResponseObjects)
 
       files = []
       proms = []
     }
-    console.warn('RBx blogtini storage_create 4', { state })
+    console.warn('RBx blogtini storage_create 6', { state })
     if (state.num_posts)
       break
   }
@@ -557,11 +612,12 @@ function url_to_base(url) {
 
 
 function setup_base(urls) { // xxx get more sophisticated than this!  eg: if all "starts" in sitemap.xml are the same, compute the post-to-top pathrel/top_page
+  console.debug('blogtini setup_base 0', { urls })
   for (const url of urls) {
     const base = url_to_base(url)
+    console.debug('blogtini setup_base 0', { base, url })
     if (base) {
       STORAGE.base = base
-      log('RBx blogtini setup_base', { 'STORAGE.base': STORAGE.base })
       return
     }
   }
@@ -571,41 +627,48 @@ function setup_base(urls) { // xxx get more sophisticated than this!  eg: if all
 async function find_posts() {
   const FILES = []
   const sitemapUrl = `${state.top_dir}sitemap.xml`
-  console.warn('RBx blogtini find_posts', { sitemapUrl })
+
+  console.debug('blogtini find_posts 0', { sitemapUrl, FILE_SLASH_SLASH_SLASH_SITE_ROOT_BASE_URL })
 
   const sitemap_urls = (await fetcher(sitemapUrl))?.split('<loc>')
     .slice(1)
     .map((e) => e.split('</loc>').slice(0, 1).join(''))
     .filter((e) => e !== '')
     .map((locUrl) => {
-      const rewrittenLocUrl = locUrl.replace(
-        new RegExp('^' + PRODUCTION_SITE_ROOT_BASE_URL),
-        SITE_ROOT_BASE_URL,
-      )
-      return rewrittenLocUrl;
+      let locUrlOut = locUrl
+      // Fetching content here wouldn't work when is file:///
+      if (FILE_SLASH_SLASH_SLASH_SITE_ROOT_BASE_URL === false) {
+        const rewrittenLocUrl = locUrl.replace(
+          new RegExp('^' + PRODUCTION_SITE_ROOT_BASE_URL),
+          SITE_ROOT_BASE_URL,
+        )
+        locUrlOut = rewrittenLocUrl
+      }
+      return locUrlOut;
     })
 
-  console.warn('RBx blogtini find_posts', { sitemap_urls })
+    console.debug('blogtini find_posts 2', { sitemap_urls })
 
   state.try_github_api_tree = false
   state.use_github_api_for_files = false
 
   if (sitemap_urls) {
-    log('RBx blogtini find_posts 1 with sitemap_urls', { sitemap_urls })
+    console.debug('RBx blogtini find_posts 1 with sitemap_urls', { sitemap_urls })
     FILES.push(...sitemap_urls)
     state.sitemap_htm = true
-    if (!STORAGE.base)
+    if (!STORAGE.base) {
       setup_base(sitemap_urls)
+    }
   } else {
-    log('RBx blogtini find_posts 1 NO sitemap_urls')
+    console.debug('RBx blogtini find_posts 1 NO sitemap_urls')
     // handles the "i'm just trying it out" / no sitemap case
     FILES.push(state.top_dir) // xxx
     state.sitemap_htm = false
   }
-  log('RBx blogtini find_posts 2', { cfg, state })
+  console.debug('RBx blogtini find_posts 2', { cfg, state })
 
   const latest = FILES.filter((e) => e.endsWith('/') || e.match(/\.(md|markdown|html|htm)$/i)).sort().reverse() // xxx assumes file*names*, reverse sorted, is latest post first...
-  log('RBx blogtini find_posts 1', { latest: latest.slice(0, cfg.posts_per_page) })
+  console.debug('RBx blogtini find_posts 1', { latest: latest.slice(0, cfg.posts_per_page) })
 
   return latest
 }
@@ -617,7 +680,7 @@ async function find_posts_from_github_api_tree() {
   )
   // xxx NOTE: tree listing has sha details on branch and each file and more. useful?
   const files = listing?.tree?.map((e) => e.path) ?? []
-  log('RBx blogtini find_posts_from_github_api_tree 1', { files })
+  console.debug('RBx blogtini find_posts_from_github_api_tree 1', { files })
 
   // prefer one of these, in this order:
   // - prefer posts/  (excluding any README.md)
@@ -635,15 +698,21 @@ async function find_posts_from_github_api_tree() {
 
 
 function markdown_parse(markdown) {
+  const [front_matter2, body_raw2] = splitFrontMatterAndMarkdown(markdown)
   const chunks = markdown.split('\n---')
   const front_matter = chunks.shift()
   const body_raw = chunks.join('\n---')
 
-  console.warn('RBx blogtini markdown_parse 0', front_matter)
+  console.debug('RBx blogtini markdown_parse 0', { front_matter, body_raw })
+  console.debug('RBx blogtini markdown_parse 0', { front_matter2, body_raw2 })
 
   try {
-    console.warn('RBx blogtini markdown_parse 1', front_matter)
     const parsed = yml.load(front_matter)
+    console.debug('RBx blogtini markdown_parse 1', {
+      front_matter_raw: front_matter,
+      front_matter: parsed,
+      body_raw,
+    })
     return [parsed, body_raw]
     // eslint-disable-next-line no-empty
   } catch (e) {
@@ -658,10 +727,10 @@ function markdown_to_post(markdown, url = location.pathname) {
   const [json, body_raw] = markdown_parse(markdown)
   if (!json) {
     // no front-matter or not parseable -- skip
-    log('RBx blogtini markdown_to_post: Error ' + 'not parseable', { url, markdown })
+    console.info('blogtini markdown_to_post: no parseable front-matter', { url, markdown })
   }
 
-  console.warn('RBx blogtini markdown_to_post' + `(markdown, url=${url})`, { markdown, body_raw, json })
+  console.debug('blogtini markdown_to_post' + `(markdown, url=${url})`, { body_raw, frontMatter: json })
 
   const title      = json.title?.trim() ?? ''
   const tags       = (json.tags       ?? []).map((e) => e.trim().replace(/ /g, '-').toLowerCase())
@@ -669,7 +738,7 @@ function markdown_to_post(markdown, url = location.pathname) {
   const date       = json.date || json.created_at || '' // xxx any more possibilities should do?
 
   if (!date) {
-    log('RBx blogtini markdown_to_post: Error ' + 'no date', { url, json })
+    console.error('blogtini markdown_to_post: Error ' + 'no date', { url, json })
     return undefined
   }
 
@@ -678,7 +747,7 @@ function markdown_to_post(markdown, url = location.pathname) {
   const featured = json.featured?.trim() || json.featured_image?.trim() || (json.images
     ? (typeof json.images === 'object' ? json.images.shift() : json.images.trim())
     : '')
-  log('RBx blogtini markdown_to_post:', { date, featured })
+  console.debug('blogtini markdown_to_post:', { date, featured })
   // author xxx
 
   const post = {
@@ -696,24 +765,33 @@ function markdown_to_post(markdown, url = location.pathname) {
 }
 
 
-async function parse_posts(markdowns) {
-  for (const [file, markdown] of Object.entries(markdowns)) {
-    const url = file.replace(/\.md$/, '')
+async function parse_posts(responses) {
+  console.debug('blogtini parse_posts 0', { responses })
+
+  for (const [resourceUri, response] of Object.entries(responses)) {
+    const url = resourceUri.replace(/\.md$/, '')
+
+    console.debug(`blogtini parse_posts 1 `, { resourceUri, response })
 
     // the very first post might have been loaded into text if the webserver served the markdown
     // file directly.  the rest are fetch() results.
     const post = markdown_to_post(
-      typeof markdown === 'string' ? markdown : await markdown.text(),
+      typeof response === 'string' ? response : await response.text(),
       url,
     )
-    if (post)
+    console.debug(`blogtini parse_posts 2 `, post)
+
+    if (post) {
+      /**
+       * That's here that we should
+       */
       // eslint-disable-next-line no-use-before-define
       storage_add(post)
+    }
   }
 }
 
 async function storage_loop() {
-  showdown.setFlavor('github') // xxx?
 
   let htm = ''
   for (const post of STORAGE.docs) {
@@ -802,6 +880,8 @@ async function storage_loop() {
 
 
 function storage_add(post) { // xxx use snippet
+  console.debug(`blogtini storage_add 0 `, post)
+
   const ts = Math.round(new Date(post.date) / 1000)
   const key = `p${isNaN(ts) ? '' : ts} ${post.url}`
   STORAGE.docs[key] = post
@@ -810,6 +890,9 @@ function storage_add(post) { // xxx use snippet
 
   // eslint-disable-next-line no-use-before-define
   const ymd = date2ymd(new Date(post.date))
+
+  console.debug(`blogtini storage_add 1 `, { ts, key, ymd, 'state.num_posts': state.num_posts })
+
   if (!STORAGE.newest || ymd > STORAGE.newest)
     STORAGE.newest = ymd
 }
@@ -884,7 +967,7 @@ function post1(post) {
 }
 
 function post_header(post) {
-  log('RBx blogtini post_header(post): ', { post })
+  console.debug('RBx blogtini post_header(post): ', { post })
   return `
 <header>
   <div class="title">
@@ -1315,10 +1398,10 @@ function wordcount(str) {
 
 function dark_mode() {
   if (window.matchMedia  &&  window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    log('RBx blogtini dark_mode: ' + 'bring on the darkness!')
+    console.info('blogtini dark_mode: ' + 'bring on the darkness!')
     const hour = new Date().getHours()
     if (hour >= 7  &&  hour < 17) { // override [7am .. 5pm] localtime
-      log('RBx blogtini dark_mode: ' + '.. but its vampire sleep time')
+      console.info('RBx blogtini dark_mode: ' + '.. but its vampire sleep time')
       document.getElementsByTagName('body')[0].classList.add('lite')
     }
     // macOS can force chrome to always use light mode (since it's slaved to mac sys pref otherwise)

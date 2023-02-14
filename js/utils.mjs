@@ -90,3 +90,52 @@ export const cleanUpInitialPayloadMarkup = (host) => {
     createBlogtiniEvent('original-content-moved'),
   )
 }
+
+/**
+ * Take a string, return an array of two strings.
+ *
+ * - front-matter
+ * - the contents
+ *
+ * Beware, in DOM, to get unescaped HTML Entities, it's best to use
+ * textContent.
+ */
+export const splitFrontMatterAndMarkdown = (contents) => {
+
+  // RBx: Maybe instead pass document here
+  // const contents = document.getElementsByTagName('body')[0].textContent
+  // const html = document.getElementsByTagName('body')[0].innerHTML.slice('\n').slice(fenceLineIndexes[1]).join('\n') ?? ''
+
+  // If it starts by a front matter, it's (probably) Markdown
+  const maybeFrontMatter = (contents ?? '').substring(3, 0)
+  if (/---/.test(maybeFrontMatter) === false) {
+    const message = `Invalid document: We do not have a front-matter marker starting exactly at line 0`
+    throw new Error(message)
+  }
+  const lines = (contents ?? '').split('\n')
+  const firstLines = lines.slice(0, 50)
+  const fenceLineIndexes = []
+  firstLines.forEach((element, idx) => {
+    const isExactlyThreeDash = /^---$/.test(element)
+    if (isExactlyThreeDash) {
+      fenceLineIndexes.push(idx)
+    }
+  })
+  if (fenceLineIndexes.length !== 2) {
+    const message = `Invalid document: We do not have a closing front-matter marker within the first 50 lines`
+    throw new Error(message)
+  }
+  if (fenceLineIndexes[0] !== 0) {
+    const message = `Invalid document: we expect that the front-matter to start at the first line`
+    throw new Error(message)
+  }
+  if (fenceLineIndexes[1] < 1) {
+    const message = `Invalid document: we expect a front-matter with a few lines`
+    throw new Error(message)
+  }
+
+  const frontMatter = lines.slice(1, fenceLineIndexes[1]).join('\n') ?? ''
+  const rest = lines.slice(fenceLineIndexes[1]).join('\n') ?? ''
+
+  return [frontMatter, rest]
+}
