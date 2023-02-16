@@ -8,10 +8,9 @@
  */
 import $ from 'https://esm.archive.org/jquery'
 import lunr from 'https://esm.archive.org/lunr'
-import dayjs from 'https://esm.archive.org/dayjs'
 
 import { summarize_markdown, markdown_to_html } from './text.js'
-
+import { debounce, getTextFromHtmlizedText } from './utils.mjs'
 
 // Flyout Menu Functions
 let toggles = {
@@ -28,24 +27,11 @@ let $searchResults;     // The element on the page holding search results
 let $searchInput;       // The search box element
 let site_cfg;           // config from main blogtini.js
 
-const getTextFromHtmlizedText = (innerHTML) => {
-  const node = document.createElement('div');
-  node.innerHTML = String(innerHTML);
-  // Let's remove code from contents.
-  node.querySelectorAll('script,pre,style,code').forEach((what) => {
-    what.remove()
-  })
-  node.textContent = node.textContent.replace(/\s/g, ' ').trim()
-  return node;
-}
-
-window.djs = dayjs
-window.getTextFromHtmlizedText = getTextFromHtmlizedText
 
 function search_setup(docs, cfg) {
   site_cfg = cfg;
 
-  console.debug(`blogtini search_setup 0 `, { docs, cfg })
+  // console.debug(`blogtini search_setup 0 `, { docs, cfg })
 
   for (const doc of docs) {
     resultDetails[doc.url] = doc
@@ -106,7 +92,7 @@ function search_setup(docs, cfg) {
     indexBuilder.field('tags')
     indexBuilder.field('categories')
 
-    console.debug(`blogtini search_setup 1 lunr `, { adder: input })
+    // console.debug(`blogtini search_setup 1 lunr `, { adder: input })
 
     // Loop through all documents and add them to index so they can be searched
     docs.forEach(function (doc, i) {
@@ -121,15 +107,15 @@ function search_setup(docs, cfg) {
       const htmlized = markdown_to_html(body_raw ?? '')
       const domNode = getTextFromHtmlizedText(htmlized)
       const body = String(domNode.textContent)
-      console.debug(`blogtini search_setup 1 lunr forEach (index: ${i})`, { url, title, date, tags, categories, body_raw, body })
-      console.debug(`blogtini search_setup 1 lunr forEach (index: ${i})`, body)
+      // console.debug(`blogtini search_setup 1 lunr forEach (index: ${i})`, { url, title, date, tags, categories, body_raw, body })
+      // console.debug(`blogtini search_setup 1 lunr forEach (index: ${i})`, body)
       indexBuilder.add({ url, title, date, tags, categories, body_raw, body })
     }, indexBuilder)
   });
 
 
   window.getLunr = () => {
-    console.debug(`blogtini search_setup 2 lunr getLunr`, { lunrIndex: idx })
+    // console.debug(`blogtini search_setup 2 lunr getLunr`, { lunrIndex: idx })
     return idx
   }
 
@@ -138,91 +124,58 @@ function search_setup(docs, cfg) {
 };
 
 function registerSearchHandler() {
-  $searchInput.oninput = function(event) {
-    var query = event.target.value;
-    var results = search(query);  // Perform the search
-
-    console.debug(`blogtini registerSearchHandler $searchInput.oninput`, { query, results })
-
+  const searchInputCallback = (evt) => {
+    var query = evt.target.value;
+    // Perform the search
+    var results = idx.search(query);
+    console.debug(`blogtini registerSearchHandler input`, { query, results: (results??[]).length })
     // Render search results
     renderSearchResults(results);
-
     // Remove search results if the user empties the search phrase input field
     if ($searchInput.value == '') {
       $searchResults.innerHTML = '';
     }
   }
+  $searchInput.oninput = debounce(searchInputCallback, 400);
 }
 
 function renderSearchResults(results) {
-  console.debug(`blogtini renderSearchResults`, { matches: results.length })
-  // Create a list of results
-  var container = document.createElement('div');
   if (results.length > 0) {
-    results.forEach(function (result) {
+    $searchResults.innerHTML = ''
+    const counter = document.createElement('p')
+    counter.textContent = `${results.length} results`
+    $searchResults.appendChild(counter)
+    for (const result of results) {
       const resultRef = result?.ref
       if (resultRef) {
         const resultData = resultDetails[resultRef]
-
         const title = Reflect.get(resultData, 'title') ?? ''
         const date = Reflect.get(resultData, 'date') ?? ''
         const href = resultRef
-        // const bodyOne = Reflect.get(resultData, 'body_raw') ?? ''
-        // const bodyTwo = Reflect.get(resultData, 'body') ?? ''
-
-        console.debug(`blogtini renderSearchResults results.forEach`, { 'result.ref': result.ref, result, resultData })
-
-        // Create result item
-        // blogtini-search-result
-        const searchResultElement = document.createElement('blogtini-search-result')
-        searchResultElement.setDependency(dayjs)
-        searchResultElement.setAttribute('date', date)
-        searchResultElement.setAttribute('title', title)
-        searchResultElement.setAttribute('href', href)
-        const p = document.createElement('p')
-        p.innerHTML = summarize_markdown(resultDetails[result.ref].body_raw, site_cfg.summary_length)
-        searchResultElement.appendChild(p)
-        container.appendChild(searchResultElement)
-        /*
-        container.innerHTML += `
-          <article class="mini-post">
-            <a href="${result.ref}">
-              <header>
-                <h2>${resultDetails[result.ref].title}</h2>
-                <time class="published" datetime="">
-                  ${dayjs(resultDetails[result.ref].date).format('MMM D, YYYY')}
-                </time>
-              </header>
-              <main>
-                <p>
-                  ${summarize_markdown(resultDetails[result.ref].body_raw, site_cfg.summary_length)}
-                </p>
-              </main>
-            </a>
-          </article>`
-          */
+        const body = resultDetails[result.ref].body_raw
+        // To reduce re-rendering and parsing
+        // create a disconnected element, then appendChild
+        // DocumentFragment does not support innerHTML, template does TIL
+        const template = document.createElement('template')
+        // Of course, this contrived way of showing search results won't scale
+        // if we have many more. YOLO
+        template.innerHTML = `
+          <blogtini-search-result
+            style="border:1px solid red;"
+            date="${date}"
+            title="${title}"
+            href="${href}"
+          >
+            ${summarize_markdown(body, site_cfg.summary_length)}
+          </blogtini-search-result>
+        `
+        const templateClone = template.content.cloneNode(true);
+        $searchResults.appendChild(templateClone)
       }
-    });
-
-    // Remove any existing content so results aren't continually added as the user types
-    while ($searchResults.hasChildNodes()) {
-      $searchResults.removeChild(
-        $searchResults.lastChild
-      );
     }
   } else {
     $searchResults.innerHTML = '<article class="mini-post"><main><p>No Results Found...</p></main></a></article>';
   }
-
-  // Render the list
-  $searchResults.innerHTML = container.innerHTML;
-}
-
-function search(query) {
-  const res = idx.search(query)
-  console.debug(`blogtini search_setup 3 lunr search`, { query, res, lunrIndex: idx })
-  return res;
 }
 
 export default search_setup
-

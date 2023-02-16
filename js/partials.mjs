@@ -1,114 +1,120 @@
+import { ContextRequestEvent } from './context.mjs'
+import { isNotNullOrStringEmptyOrNull } from './utils.mjs'
+
+/**
+ * Context API to request date transformation
+ */
+export const ContextRequest_DateConversion = 'date-conversion'
+
 export class SearchResultElement extends HTMLElement {
   static get observedAttributes() {
     return ['date', 'title', 'href']
   }
 
-  _dayJs = void 0
-
-  get date() {
-    return this.getAttribute('date')
+  set date(input = '') {
+    if (isNotNullOrStringEmptyOrNull(input)) {
+      const currentValue = this.getAttribute('date')
+      const changed = currentValue !== input
+      changed && this.setAttribute('date', input)
+    }
   }
 
-  get title() {
-    return this.getAttribute('title')
+  set href(input) {
+    if (isNotNullOrStringEmptyOrNull(input)) {
+      const currentValue = this.getAttribute('href')
+      const changed = currentValue !== input
+      changed && this.setAttribute('href', input)
+    }
   }
 
-  get href() {
-    return this.getAttribute('href')
+  set title(input) {
+    if (isNotNullOrStringEmptyOrNull(input)) {
+      const currentValue = this.getAttribute('title')
+      const changed = currentValue !== input
+      changed && this.setAttribute('title', input)
+    }
   }
 
   constructor() {
     super()
-    const shadow = this.attachShadow({ mode: 'open' })
-    const elBody = document.createElement('div')
-    elBody.innerHTML = '<!-- nothing -->'
-    shadow.appendChild(elBody)
-  }
-
-  updateMarkup = ({ date, title, href }) => {
-    const frag = document.createElement('article')
-    frag.setAttribute('class', 'mini-post')
-    frag.innerHTML = `
-      <a href="${href}">
+    const shadowRoot = this.attachShadow({ mode: 'open' })
+    const article = document.createElement('article')
+    article.setAttribute('class', 'mini-post')
+    article.innerHTML = `
+      <style>
+        :host, a {
+          display: block;
+        }
+        header time:not([datetime]) {
+          display: none;
+        }
+        a {
+          text-decoration: none;
+        }
+      </style>
+      <a href="">
         <header>
-          <h2>${title}</h2>
-          <time class="published">${date}</time>
+          <h2 class="title"></h2>
+          <time></time>
         </header>
-        <main>
-          <slot>
-            <p>...</p>
-          </slot>
+        <main part="main">
+          <slot><!-- nothing --></slot>
         </main>
       </a>`
-    frag.setAttribute('data-for', 'search-result')
-    this.shadowRoot.appendChild(frag)
-    if (this._dayJs) {
-      const data = this._dayJs(date)
-      const dateUnix = data.unix()
-      const dateIsoString = data.toISOString()
-      const dateHuman = data.format('MMM D, YYYY') // TODO: Make format configurable
-      const timeEl = this.shadowRoot.querySelector('time')
-      timeEl.setAttribute('datetime', dateIsoString)
-      timeEl.setAttribute('data-unix-epoch', dateUnix)
-      timeEl.textContent = dateHuman
-      this.shadowRoot.querySelector('time').replaceWith(timeEl)
-      console.debug(`<${this.localName} /> this._dayJs(date)`, {
-        date,
-        dateUnix,
-        dateIsoString,
-        dateHuman,
-        timeEl,
-      })
+    shadowRoot.appendChild(article)
+  }
+
+  connectedCallback() {
+    // Because the host has the attributes, and each
+    // of them has a setter to put at the right place
+    // where to use the value in the shadowDOM
+    this.href = this.getAttribute('href')
+    this.title = this.getAttribute('title')
+    const date = this.getAttribute('date')
+    this.date = date
+    if (date) {
+      this.dispatchEvent(
+        new ContextRequestEvent(
+          ContextRequest_DateConversion,
+          this._onDateConversionContextEvent,
+        ),
+      )
     }
-    return frag
+  }
+
+  _onDateConversionContextEvent = (data) => {
+    const { dateIsoString, dateUnix, dateHuman } = data
+    const timeEl = this.shadowRoot.querySelector('time')
+    if (dateIsoString) {
+      timeEl.setAttribute('datetime', dateIsoString)
+    }
+    if (dateUnix) {
+      timeEl.setAttribute('data-unix-epoch', dateUnix)
+    }
+    if (dateHuman) {
+      timeEl.setAttribute('class', 'published')
+      timeEl.textContent = dateHuman
+    }
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
-    let href = this.getAttribute('href')
-    let title = this.getAttribute('title')
-    let date = this.getAttribute('date')
-    let changed = false
-    const reassign = (prevVal, newVal) => {
-      if (prevVal === newVal) {
-        return prevVal
-      } else {
-        changed = true
+    const changedWithValue =
+      oldValue !== newValue && isNotNullOrStringEmptyOrNull(newValue)
+    if (changedWithValue) {
+      if (name === 'date') {
+        this.dispatchEvent(
+          new ContextRequestEvent(
+            ContextRequest_DateConversion,
+            this._onDateConversionContextEvent,
+          ),
+        )
       }
-      return newVal
-    }
-    switch (name) {
-      case 'href':
-        href = reassign(oldValue, newValue)
-        break
-      case 'title':
-        title = reassign(oldValue, newValue)
-        break
-      case 'date':
-        date = reassign(oldValue, newValue)
-        break
-    }
-    console.debug(`<${this.localName} /> attributeChangedCallback`, {
-      name,
-      changed,
-      oldValue,
-      newValue,
-      'this._dayJs': this._dayJs,
-      href,
-      title,
-      date,
-    })
-    if (changed) {
-      this.updateMarkup({ date, title, href })
-    }
-  }
-
-  setDependency = (dependency) => {
-    // console.debug(`<${this.localName} /> setDependency`, dependency)
-    if (!Reflect.has(dependency, 'unix')) {
-      const message = `This does not look like dayjs, there isn't a method named unix, dates will not be formatted`
-      console.error(message)
-    } else {
-      this._dayJs = dependency.bind(this)
+      if (name === 'href') {
+        this.shadowRoot.querySelector('a[href]').setAttribute('href', newValue)
+      }
+      if (name === 'title') {
+        this.shadowRoot.querySelector('a > header > h2').textContent = newValue
+      }
     }
   }
 }

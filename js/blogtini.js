@@ -152,15 +152,11 @@ jekyll (GitHub Pages) plugins:
 /* eslint-disable no-continue */
 import yml from 'https://esm.archive.org/js-yaml'
 import dayjs from 'https://esm.archive.org/dayjs'
-import showdown from 'https://esm.archive.org/showdown'
 import hljs from 'https://esm.archive.org/highlightjs'
 
 import { krsort } from 'https://av.prod.archive.org/js/util/strings.js'
-import { registerCustomElements } from './partials.mjs'
+import { registerCustomElements, ContextRequest_DateConversion } from './partials.mjs'
 
-// adds header click actions, etc.
-// eslint-disable-next-line import/no-named-as-default
-import search_setup from './future-imperfect.js'
 import { markdown_to_html, summarize_markdown } from './text.js'
 
 import {
@@ -181,14 +177,36 @@ const FILE_SLASH_SLASH_SLASH_SITE_ROOT_BASE_URL = /^file\:\//.test(SITE_ROOT_BAS
 assertBaseUrlWithEndingSlash(PRODUCTION_SITE_ROOT_BASE_URL)
 assertBaseUrlWithEndingSlash(SITE_ROOT_BASE_URL)
 
-
 const dayJsHelper = dayjs()
-showdown.setFlavor('github') // xxx?
 
 // Register stuff
 registerCustomElements(window)
 
+/**
+ * Update data based on services available here.
+ *
+ * See:
+ * - https://gist.github.com/renoirb/d0d92314b04927c8513a86810902a53a
+ * - https://gist.github.com/renoirb/21e31aab8d4cbcebb24afede7c49e449
+ * - https://github.com/webcomponents-cg/community-protocols/blob/main/proposals/context.md
+ */
+window.document.addEventListener('context-request', (event) => {
+  handleContextRequest_DateConversion(event);
+})
 
+const handleContextRequest_DateConversion = (event) => {
+  if (event.context === ContextRequest_DateConversion) {
+    event.stopPropagation();
+    const date = event.target.getAttribute('date')
+    if (date) {
+      const data = dayjs(date)
+      const dateUnix = data.unix()
+      const dateIsoString = data.toISOString()
+      const dateHuman = data.format('MMM D, YYYY') // TODO: Make format configurable
+      event.callback({ date, dateIsoString, dateUnix, dateHuman});
+    }
+  }
+}
 
 const state = {
   top_dir: SITE_ROOT_BASE_URL,
@@ -363,7 +381,7 @@ async function main() {
     }
     Reflect.set(debuggingState, k, v)
   })
-  console.debug('blogtini main 1', {
+  console.warn('blogtini main 1', {
     state: debuggingState,
     href,
     base,
@@ -383,7 +401,7 @@ async function main() {
     if (SEARCH.match(/^\?20\d\d-\d\d-\d\d-/)) {
       // prior SPA type blogtini method.  so now do a soft 404
       // https://developers.google.com/search/docs/advanced/javascript/javascript-seo-basics#avoid-soft-404s
-      window.location.href = '/not-found' // redirect to 404 page on the server
+      window.location.href = '/not-found.html' // redirect to 404 page on the server
       return
     }
 
@@ -399,7 +417,7 @@ async function main() {
   const contrivance = location.href.match(/^https:\/\/(.*)\.github\.io\/([^/]+)/)
 
 
-  console.debug('blogtini main 2', {
+  console.warn('blogtini main 2', {
     'STORAGE.base': STORAGE.base,
     STORAGE_KEY,
     contrivance,
@@ -420,7 +438,7 @@ async function main() {
     cfg = { ...cfg, ...tmp } // xxx deep merge `sidebar` value hashmap, too
   }
 
-  console.debug('blogtini main 3', {
+  console.warn('blogtini main 3', {
     'STORAGE.base': STORAGE.base,
     configYamlUrl,
     contrivance,
@@ -429,7 +447,13 @@ async function main() {
     filter_post,
   })
 
-  add_css(`${SITE_ROOT_BASE_URL}css/blogtini.css`) // xxxx theme.css
+  console.warn('blogtini', { cfg })
+  let prefix = cfg.repo === 'blogtini' ? state.pathrel : 'https://blogtini.com/'
+  prefix = 'https://blogtini.com/'
+  // eslint-disable-next-line no-use-before-define
+  add_css(`${prefix}css/blogtini.css`) // xxxx theme.css
+
+  //add_css(`${SITE_ROOT_BASE_URL}css/blogtini.css`)
 
   cleanUpInitialPayloadMarkup(document)
 
@@ -487,9 +511,10 @@ async function main() {
 
   const storageCreatedIsSomethingToFigureOutWhat = STORAGE.created !== dayJsHelper.format('MMM D, YYYY')
   const storageKeysLength = !Object.keys(STORAGE).length
-  const whataf = storageKeysLength || storageCreatedIsSomethingToFigureOutWhat
 
-  console.debug('blogtini main 4', {
+  console.warn('blogtini main 4', {
+    'STORAGE.created': STORAGE.created,
+    'dayJsHelper.format': dayJsHelper.format('MMM D, YYYY'),
     storageCreatedIsSomethingToFigureOutWhat,
     storageKeysLength,
     'storageKeysLength || storageCreatedIsSomethingToFigureOutWhat': storageKeysLength || storageCreatedIsSomethingToFigureOutWhat,
@@ -771,12 +796,12 @@ function markdown_to_post(markdown, url = location.pathname) {
 
 
 async function parse_posts(responses) {
-  console.debug('blogtini parse_posts 0', { responses })
+  console.warn('blogtini parse_posts 0', { responses })
 
   for (const [resourceUri, response] of Object.entries(responses)) {
     const url = resourceUri.replace(/\.md$/, '')
 
-    console.debug(`blogtini parse_posts 1 `, { resourceUri, response })
+    console.warn(`blogtini parse_posts 1 `, { resourceUri, response })
 
     // the very first post might have been loaded into text if the webserver served the markdown
     // file directly.  the rest are fetch() results.
@@ -784,7 +809,7 @@ async function parse_posts(responses) {
       typeof response === 'string' ? response : await response.text(),
       url,
     )
-    console.debug(`blogtini parse_posts 2 `, post)
+    console.warn(`blogtini parse_posts 2 `, post)
 
     if (post) {
       /**
@@ -809,7 +834,7 @@ async function storage_loop() {
       state.cats[cat].push(post.url)
     }
 
-    console.debug('blogtini storage_loop 0', {
+    console.warn('blogtini storage_loop 0', {
       'post.url': post.url,
       post,
       'post.type': post.type,
@@ -855,7 +880,7 @@ async function storage_loop() {
     if (filter_post) {
       const postFullHtml = await post_full(post)
 
-      console.debug('blogtini storage_loop 1', {
+      console.warn('blogtini storage_loop 1', {
         'post.url': post.url,
         post,
         'post.type': post.type,
@@ -868,6 +893,15 @@ async function storage_loop() {
         <!-- RBx htmlString storage_loop, post_full -->
         ${postFullHtml}
       `
+
+      const { body_raw: _, ...frontMatterObj } = post
+      console.warn(`blogtini storage_loop 2 `, { frontMatterObj })
+
+      const frontMatterElement = document.createElement('script')
+      frontMatterElement.setAttribute('type', 'application/json')
+      frontMatterElement.setAttribute('id', 'blogtini-post-front-matter')
+      frontMatterElement.textContent = JSON.stringify({ ...frontMatterObj })
+      document.body.appendChild(frontMatterElement)
 
       // copy sharing buttons to the fly-out menu
       document.getElementById('share-menu').insertAdjacentHTML(
@@ -919,7 +953,6 @@ async function post_full(post) {
   return `<!-- RBx htmlString post_full BEGIN -->
     ${'' /* eslint-disable-next-line no-use-before-define */}
     ${site_start()}
-
     <article>
       <div class="post single">
         ${'' /* eslint-disable-next-line no-use-before-define */}
@@ -1408,6 +1441,8 @@ function wordcount(str) {
 }
 
 function dark_mode() {
+  document.getElementsByTagName('body')[0].classList.add('lite')
+  return true
   if (window.matchMedia  &&  window.matchMedia('(prefers-color-scheme: dark)').matches) {
     console.info('blogtini dark_mode: ' + 'bring on the darkness!')
     const hour = new Date().getHours()
@@ -1426,6 +1461,22 @@ function finish() {
   if (cfg.sidebar.post_amount) {
     const more = STORAGE.docs.length > cfg.sidebar.post_amount
 
+    /*
+    const template = document.createElement('template')
+    // Of course, this contrived way of showing search results won't scale
+    // if we have many more. YOLO
+    template.innerHTML = `
+      <blogtini-search-result
+        style="border:red;"
+        date="${date}"
+        title="${title}"
+        href="${href}"
+      >
+        ${summarize_markdown(body, site_cfg.summary_length)}
+      </blogtini-search-result>
+    `
+    $searchResults.appendChild(template.content)
+    */
     document.getElementById('recent-posts')?.insertAdjacentHTML('beforeend', `
   <header>
     <h1>Recent Posts</h1>
@@ -1482,7 +1533,10 @@ function finish() {
 
   import('./staticman.js')
 
-  search_setup(STORAGE.docs, cfg)
+  import('./future-imperfect.js').then((searchSetup) => {
+    const { default: search_setup } = searchSetup
+    search_setup(STORAGE.docs, cfg)
+  })
 }
 
 
