@@ -23,9 +23,10 @@
 -->
 
 <script type="module">
-  import { registerCustomElement } from 'https://www.renoirb.com/esm-modules/app-layout-element.mjs'
-  import { loadFromGitHub } from 'https://www.renoirb.com/esm-modules/load-from-github.mjs'
-  registerCustomElement(window, 'renoirb-app-layout')
+  import { registerCustomElement } from 'https://renoirb.com/esm-modules/element-utils.mjs'
+  import AppLayout from 'https://renoirb.com/esm-modules/app-layout-element.mjs'
+  import loadFromGitHub from 'https://renoirb.com/esm-modules/load-from-github.mjs'
+  registerCustomElement(window, 'renoirb-app-layout', AppLayout)
   loadFromGitHub(document.querySelector('#from-gist'), '21e31aab8d4cbcebb24afede7c49e449', '0README.md')
 </script>
 
